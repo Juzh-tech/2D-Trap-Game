@@ -1,0 +1,99 @@
+package com.teikinui.game;
+
+import com.badlogic.gdx.Game;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.teikinui.game.level.LevelManager;
+import com.teikinui.game.level.LevelTheme;
+import com.teikinui.game.model.GameSession;
+import com.teikinui.game.model.GameTimer;
+import com.teikinui.game.view.Assets;
+import com.teikinui.game.view.Hud;
+import com.teikinui.game.view.MessageScreen.Board;
+import com.teikinui.game.view.MenuScreen;
+import com.teikinui.game.view.MessageScreen;
+import com.teikinui.game.view.PlayScreen;
+
+/**
+ * Point de départ du jeu. Regroupe toute la navigation entre les écrans :
+ * showMenu(), startGame(), showTimeUp(), showVictory().
+ */
+public class TripTrapGame extends Game {
+    private SpriteBatch batch;
+    private Assets assets;
+    private GameSession session;
+    private GameTimer timer;
+    private PlayScreen playScreen;
+
+    @Override
+    public void create() {
+        batch = new SpriteBatch();
+        assets = new Assets();
+        showMenu();
+    }
+
+    /** Le hall d'aéroport. */
+    public void showMenu() {
+        disposePlayScreen();
+        setScreen(new MenuScreen(this));
+    }
+
+    /** Une nouvelle partie : chrono à 3 minutes, 0 mort, premier pays. */
+    public void startGame() {
+        startGame(LevelTheme.values()[0]);
+    }
+
+    /** Une nouvelle partie qui commence dans le pays choisi au menu. */
+    public void startGame(LevelTheme start) {
+        disposePlayScreen();
+        session = new GameSession();
+        timer = new GameTimer();
+        playScreen = new PlayScreen(this, session, timer, new LevelManager(start));
+        setScreen(playScreen);
+    }
+
+    /** Le chrono est à zéro : écran de fin avec le nombre de morts. */
+    public void showTimeUp() {
+        String details = "Les 3 minutes sont écoulées. Tu es mort " + session.getDeathCount() + " fois.\n"
+                + "Le voyage, ce n'est clairement pas pour toi.";
+        setScreen(new MessageScreen(this, "TEMPS ÉCOULÉ", details,
+                Board.forResult(LevelTheme.values()[session.getCurrentLevel()],
+                        session.getDeathCount(), 0f, false), this::startGame, this::showMenu));
+    }
+
+    /** Le dernier objectif est attrapé : écran de victoire. */
+    public void showVictory() {
+        String details = "Tu as fini ton tour du monde !\n"
+                + "Morts : " + session.getDeathCount()
+                + "     Temps restant : " + Hud.formatTime(timer.getRemaining());
+        setScreen(new MessageScreen(this, "BON VOYAGE !", details,
+                Board.forResult(LevelTheme.values()[session.getCurrentLevel()],
+                        session.getDeathCount(), timer.getRemaining(), true),
+                this::startGame, this::showMenu));
+    }
+
+    private void disposePlayScreen() {
+        if (playScreen != null) {
+            playScreen.dispose();
+            playScreen = null;
+        }
+    }
+
+    public SpriteBatch getBatch() {
+        return batch;
+    }
+
+    public Assets getAssets() {
+        return assets;
+    }
+
+    @Override
+    public void dispose() {
+        super.dispose();
+        if (getScreen() != null && getScreen() != playScreen) {
+            getScreen().dispose();
+        }
+        disposePlayScreen();
+        assets.dispose();
+        batch.dispose();
+    }
+}
